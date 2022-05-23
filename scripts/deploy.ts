@@ -1,12 +1,11 @@
 // We require the Hardhat Runtime Environment explicitly here. This is optional
 
-import { Contract, utils } from "ethers";
+import { Contract } from "ethers";
 import fs from "fs";
-import hre, { ethers } from "hardhat";
+import hre from "hardhat";
 
 import path from "path";
 import { deployContract } from "../helpers/deployHelpers";
-import { DAIToken, DappToken, TokenFarm } from "../typechain";
 
 interface IABIOutput {
   contract: Contract;
@@ -16,42 +15,14 @@ interface IABIOutput {
 async function main() {
   //* 1) Add the deploy contract below
   //* 2) Then, just insert it into the abiOutputs array
-
-  const daiToken = await deployContract<DAIToken>("DAIToken");
-  const dappToken = await deployContract<DappToken>("DappToken");
-  const tokenFarm = await deployContract<TokenFarm>("TokenFarm", {
-    args: [dappToken.address, daiToken.address],
-  });
-
-  // provide liquidity to our token farm
-  await dappToken.transfer(tokenFarm.address, await dappToken.totalSupply());
-
-  // transfer 100 mock DAI tokens to investor
-  const accounts = await ethers.getSigners();
-  const investor = accounts[1];
-
-  console.log(`transfering 100 mock DAI to address ${investor.address}`);
-  const daiWei = utils.parseEther("100");
-  await daiToken.transfer(accounts[1].address, daiWei);
-
-  console.log(`Investor's balance: ${await daiToken.balanceOf(investor.address)}`);
-
-  const abiOutputs: IABIOutput[] = [
-    {
-      contract: daiToken,
-      name: "DAIToken",
-    },
-    {
-      contract: dappToken,
-      name: "DappToken",
-    },
-    {
-      contract: tokenFarm,
-      name: "TokenFarm",
-    },
-  ];
-
-  generateABI(abiOutputs);
+  // const daiToken = await deployContract<DAIToken>("DAIToken");
+  // const abiOutputs: IABIOutput[] = [
+  //   {
+  //     contract: daiToken,
+  //     name: "DAIToken",
+  //   }
+  // ];
+  // generateABI(abiOutputs);
 }
 
 // We recommend this pattern to be able to use async/await everywhere
