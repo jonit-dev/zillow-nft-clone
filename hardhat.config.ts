@@ -25,7 +25,7 @@ task("accounts", "Prints the list of accounts", async (taskArgs, hre) => {
 // Go to https://hardhat.org/config/ to learn more
 
 const config: HardhatUserConfig = {
-  solidity: "0.8.0",
+  solidity: "0.8.1",
   networks: {
     // comment this in if you want to use ganache UI. Currently it's using the ganache-cli automatically!
     localhost: {
