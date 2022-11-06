@@ -2,4 +2,4 @@
 /* eslint-disable node/no-unpublished-import */
 import { utils } from "ethers";
 
-export const ToToken = (amount: string) => utils.parseEther(amount);
+export const toToken = (amount: string) => utils.parseEther(amount);

@@ -13,6 +13,15 @@ contract Escrow is ERC721Holder {
   address payable public seller;
   address public nftAddress;
 
+  struct RealEstate {
+    bool isListed;
+    uint256 purchasePrice;
+    uint256 escrowAmount;
+    address buyer;
+  }
+
+  mapping(uint256 => RealEstate) public listings;
+
   constructor(
     address _nftAddress,
     address payable _seller,
@@ -26,8 +35,24 @@ contract Escrow is ERC721Holder {
   }
 
   // List NFT contract into Escrow
-  function list(uint256 _nftId) public {
+  function list(uint256 _nftId, uint256 _listingPrice) public payable onlySeller notListed(_nftId) {
     // move token to this smart contract
     IERC721(nftAddress).safeTransferFrom(msg.sender, address(this), _nftId);
+
+    // escrowAmount should be 10% of the listingPrice
+    uint256 escrowAmount = (_listingPrice * 10) / 100;
+
+    listings[_nftId] = RealEstate(true, _listingPrice, escrowAmount, address(0));
+  }
+
+  modifier onlySeller() {
+    require(msg.sender == seller, "Only a seller can call this function.");
+    _;
+  }
+
+  // modifier check token is not listed
+  modifier notListed(uint256 _nftId) {
+    require(listings[_nftId].isListed == false, "This token is already listed.");
+    _;
   }
 }
