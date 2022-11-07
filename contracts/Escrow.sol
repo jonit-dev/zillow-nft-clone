@@ -18,6 +18,7 @@ contract Escrow is ERC721Holder {
     uint256 purchasePrice;
     uint256 escrowAmount;
     address buyer;
+    bool inspectionPassed;
   }
 
   mapping(uint256 => RealEstate) public listings;
@@ -35,14 +36,45 @@ contract Escrow is ERC721Holder {
   }
 
   // List NFT contract into Escrow
-  function list(uint256 _nftId, uint256 _listingPrice) public payable onlySeller notListed(_nftId) {
+  function list(
+    uint256 _nftId,
+    uint256 _listingPrice,
+    address buyer
+  ) public payable onlySeller notListed(_nftId) {
     // move token to this smart contract
     IERC721(nftAddress).safeTransferFrom(msg.sender, address(this), _nftId);
 
     // escrowAmount should be 10% of the listingPrice
     uint256 escrowAmount = (_listingPrice * 10) / 100;
 
-    listings[_nftId] = RealEstate(true, _listingPrice, escrowAmount, address(0));
+    listings[_nftId] = RealEstate(true, _listingPrice, escrowAmount, buyer, false);
+  }
+
+  // Put under contract (only buyer - payable escrow) - its like a downpayment
+  function depositEarnest(uint256 _nftID) public payable onlyBuyer(_nftID) {
+    uint256 escrowAmount = listings[_nftID].escrowAmount;
+
+    require(msg.value >= escrowAmount, "Not enough funds to deposit");
+  }
+
+  function updateInspectionStatus(uint256 _nftID, bool _passed) public onlyInspector {
+    listings[_nftID].inspectionPassed = _passed;
+  }
+
+  receive() external payable {} // required for receiving ether to the SC
+
+  function getBalance() public view returns (uint256) {
+    return address(this).balance;
+  }
+
+  modifier onlyInspector() {
+    require(msg.sender == inspector, "Only the inspector can call this function");
+    _;
+  }
+
+  modifier onlyBuyer(uint256 _nftId) {
+    require(msg.sender == listings[_nftId].buyer, "Only the buyer can call this function");
+    _;
   }
 
   modifier onlySeller() {

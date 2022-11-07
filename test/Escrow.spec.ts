@@ -9,7 +9,11 @@ import { deployContract } from "../helpers/deployHelpers";
 import { toToken } from "../helpers/utilsHelper";
 
 describe("Escrow.sol", () => {
-  let accounts: SignerWithAddress[], lender: SignerWithAddress, inspector: SignerWithAddress, seller: SignerWithAddress;
+  let accounts: SignerWithAddress[],
+    lender: SignerWithAddress,
+    inspector: SignerWithAddress,
+    seller: SignerWithAddress,
+    buyer: SignerWithAddress;
 
   let escrow: Escrow;
   let realEstateNFT: RealEstate;
@@ -20,6 +24,7 @@ describe("Escrow.sol", () => {
     lender = accounts[0];
     inspector = accounts[1];
     seller = accounts[2];
+    buyer = accounts[3];
 
     realEstateNFT = await deployContract("RealEstate", undefined, false);
 
@@ -32,7 +37,7 @@ describe("Escrow.sol", () => {
     );
   });
 
-  describe("Main operations", () => {
+  describe("Listing", () => {
     it("should have the proper related addresses, after deployed", async () => {
       const lenderAddr = await escrow.lender();
       const inspectorAddr = await escrow.inspector();
@@ -60,7 +65,7 @@ describe("Escrow.sol", () => {
 
       // then, lets list the token on the escrow
 
-      await escrow.connect(seller).list(1, toToken("100"));
+      await escrow.connect(seller).list(1, toToken("100"), buyer.address);
 
       // expect the token to be listed on the escrow
 
@@ -75,8 +80,44 @@ describe("Escrow.sol", () => {
       expect(listingData.purchasePrice).to.equal(toToken("100"));
 
       expect(listingData.escrowAmount).to.equal(toToken("10"));
+
+      expect(listingData.buyer).to.equal(buyer.address);
+
+      expect(listingData.inspectionPassed).to.equal(false);
     });
   });
+
+  describe("Deposits", () => {
+    it("Updates contract balance after the buyer deposits the earnest", async () => {
+      await mintApproveAndList(seller);
+
+      await escrow.connect(buyer).depositEarnest(1, { value: toToken("10") }); // buyer deposits escrow amount (downpayment)
+
+      const contractBalance = await ethers.provider.getBalance(escrow.address);
+
+      expect(contractBalance).to.equal(toToken("10"));
+    });
+  });
+
+  describe("Inspections", () => {
+    it("should properly update the Real estate listing inspection status", async () => {
+      await mintApproveAndList(seller);
+
+      await escrow.connect(inspector).updateInspectionStatus(1, true);
+
+      const listingData = await escrow.listings(1);
+
+      expect(listingData.inspectionPassed).to.equal(true);
+    });
+  });
+
+  const mintApproveAndList = async (account: SignerWithAddress) => {
+    await realEstateNFT.connect(account).mint("https://google.com");
+
+    await realEstateNFT.connect(account).approve(escrow.address, 1);
+
+    await escrow.connect(account).list(1, toToken("100"), buyer.address);
+  };
 
   describe("Validations", () => {
     it("should revert is a person other than the seller tries to list a token", async () => {
@@ -84,19 +125,33 @@ describe("Escrow.sol", () => {
 
       await realEstateNFT.connect(lender).approve(escrow.address, 1);
 
-      await expect(escrow.connect(lender).list(1, toToken("100"))).to.be.revertedWith(
+      await expect(escrow.connect(lender).list(1, toToken("100"), buyer.address)).to.be.revertedWith(
         "Only a seller can call this function."
       );
     });
 
+    it("should revert if an account that's not an inspector tries to update the inspection state", async () => {
+      await mintApproveAndList(seller);
+
+      await expect(escrow.connect(buyer).updateInspectionStatus(1, true)).to.be.revertedWith(
+        "Only the inspector can call this function"
+      );
+    });
+
     it("should revert if the seller tries to list a token that is already listed", async () => {
-      await realEstateNFT.connect(seller).mint("https://google.com");
+      await mintApproveAndList(seller);
 
-      await realEstateNFT.connect(seller).approve(escrow.address, 1);
+      await expect(escrow.connect(seller).list(1, toToken("100"), buyer.address)).to.be.revertedWith(
+        "This token is already listed."
+      );
+    });
 
-      escrow.connect(seller).list(1, toToken("100"));
+    it("should revert if an address thats not a buyer calls the depositEarnest method", async () => {
+      await mintApproveAndList(seller);
 
-      await expect(escrow.connect(seller).list(1, toToken("100"))).to.be.revertedWith("This token is already listed.");
+      await expect(escrow.connect(seller).depositEarnest(1, { value: toToken("10") })).to.be.revertedWith(
+        "Only the buyer can call this function"
+      );
     });
   });
 });
