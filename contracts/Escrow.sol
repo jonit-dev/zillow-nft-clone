@@ -72,14 +72,14 @@ contract Escrow is ERC721Holder {
   Finalize sale requirements:
      - Inspection status to be true
      - Sale to be authorized
-     - Funds to be correct aount
+     - Funds to be correct amount
   Actions:
     - Transfer NFT to buyer
     - Transfer funds to seller
  */
   function finalizeSale(uint256 _nftID)
     public
-    hasInspectonPassed(_nftID)
+    hasInspectionPassed(_nftID)
     isSaleApproved(_nftID)
     isContractProperlyFunded(_nftID)
   {
@@ -109,7 +109,7 @@ contract Escrow is ERC721Holder {
     _;
   }
 
-  modifier hasInspectonPassed(uint256 _nftID) {
+  modifier hasInspectionPassed(uint256 _nftID) {
     require(listings[_nftID].inspectionPassed, "Inspection has not passed!");
     _;
   }
