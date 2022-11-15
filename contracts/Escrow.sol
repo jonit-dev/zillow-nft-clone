@@ -1,5 +1,6 @@
 //SPDX-License-Identifier: MIT
 pragma solidity ^0.8.1;
+import "hardhat/console.sol";
 
 // import IERC721 from node_modules
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
@@ -20,6 +21,8 @@ contract Escrow is ERC721Holder {
     address buyer;
     bool inspectionPassed;
   }
+
+  mapping(uint256 => mapping(address => bool)) public nftApprovalStates;
 
   mapping(uint256 => RealEstate) public listings;
 
@@ -61,10 +64,54 @@ contract Escrow is ERC721Holder {
     listings[_nftID].inspectionPassed = _passed;
   }
 
+  function approveSale(uint256 _nftID) public {
+    nftApprovalStates[_nftID][msg.sender] = true;
+  }
+
+  /**
+  Finalize sale requirements:
+     - Inspection status to be true
+     - Sale to be authorized
+     - Funds to be correct aount
+  Actions:
+    - Transfer NFT to buyer
+    - Transfer funds to seller
+ */
+  function finalizeSale(uint256 _nftID)
+    public
+    hasInspectonPassed(_nftID)
+    isSaleApproved(_nftID)
+    isContractProperlyFunded(_nftID)
+  {
+    // transfer funds from this SC to seller and require success of this transaction
+    require(seller.send(listings[_nftID].purchasePrice), "Transfer of funds to seller failed");
+
+    // transfer NFT to buyer
+    IERC721(nftAddress).safeTransferFrom(address(this), listings[_nftID].buyer, _nftID);
+  }
+
   receive() external payable {} // required for receiving ether to the SC
 
   function getBalance() public view returns (uint256) {
     return address(this).balance;
+  }
+
+  modifier isContractProperlyFunded(uint256 _nftID) {
+    require(address(this).balance >= listings[_nftID].purchasePrice, "Contract not properly funded");
+    _;
+  }
+
+  modifier isSaleApproved(uint256 _nftID) {
+    address buyer = listings[_nftID].buyer;
+    require(nftApprovalStates[_nftID][buyer] == true, "Sale not approved by buyer!");
+    require(nftApprovalStates[_nftID][seller] == true, "Sale not approved by seller!");
+    require(nftApprovalStates[_nftID][lender] == true, "Sale not approved by lender!");
+    _;
+  }
+
+  modifier hasInspectonPassed(uint256 _nftID) {
+    require(listings[_nftID].inspectionPassed, "Inspection has not passed!");
+    _;
   }
 
   modifier onlyInspector() {
